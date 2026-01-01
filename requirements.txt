@@ -1,0 +1,13 @@
+opencv-python
+mediapipe
+numpy
+joblib
+scikit-learn
+python-osc
+sounddevice
+wavio
+soundfile
+scipy
+Pillow
+mido
+pygame

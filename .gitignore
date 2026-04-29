@@ -9,3 +9,9 @@ venv.bak/
 
 # Python cache files
 __pycache__/
+
+# Build metadata
+*.egg-info/
+
+# Trained model (train with src/train_model.py)
+src/gesture_model.pkl

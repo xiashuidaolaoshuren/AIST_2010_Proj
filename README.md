@@ -15,83 +15,77 @@ A Python-based application that uses computer vision to control music synthesis 
 
 ## Prerequisites
 
-- Python 3.8+
+- **Python 3.12** (`requires-python` in `pyproject.toml`)
+- [uv](https://docs.astral.sh/uv/) (recommended)
 - [SuperCollider](https://supercollider.github.io/) (for sound synthesis)
 - A webcam
 
+**Note:** `mediapipe` is pinned to `0.10.14` so the classic `mp.solutions.hands` API used by this project remains available. Newer MediaPipe wheels dropped `solutions` in favor of `tasks`.
+
+## Trained model
+
+The repository does **not** include `gesture_model.pkl`. Without it, the app still runs: you get the camera and hand landmarks; the gesture label shows `(No model)` until you add a model.
+
+Train your own (one subdirectory per gesture class, videos inside each):
+
+```bash
+uv sync
+uv run python src/train_model.py --data_dir path/to/your/dataset --output src/gesture_model.pkl
+```
+
+Or copy an existing `gesture_model.pkl` to `src/gesture_model.pkl`.
+
 ## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd hand_gesture
-   ```
+```bash
+git clone <repository-url>
+cd hand_gesture
+uv sync
+```
 
-2. Install the required Python packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
+Optional pip install aligned with `pyproject.toml`:
 
-3. Ensure SuperCollider is installed and running.
+```bash
+pip install -r requirements.txt
+```
 
 ## Usage
 
-### 1. Sound Synthesis Setup
+### 1. Sound synthesis setup
 
-Before running the Python application, you need to start the SuperCollider server and load the synth definitions.
-- Open `src/sound_syn.scd` in SuperCollider.
-- Execute the code to boot the server and define the synths.
+Open `src/sound_syn.scd` in SuperCollider and execute it to boot the server and load synths.
 
-### 2. Running the Application
-
-To start the main application with the GUI:
+### 2. Running the application
 
 ```bash
-python src/RUNME.py
-```
-Or directly:
-```bash
-python src/gui_version.py
+uv run hand-gesture-gui
 ```
 
-### 3. Training the Model (Optional)
-
-If you want to retrain the gesture recognition model with your own dataset:
-
-1. Organize your dataset in a directory where each subdirectory is a gesture class containing video files.
-2. Run the training script:
+Alternatives:
 
 ```bash
-python src/train_model.py --data_dir path/to/your/dataset --output src/gesture_model.pkl
+uv run python src/RUNME.py
+uv run python src/gui_version.py
 ```
 
-Arguments:
-- `--data_dir`: Path to the dataset directory (required).
-- `--output`: Path to save the trained model (default: `gesture_model.pkl`).
-- `--test_size`: Fraction of data to use for testing (default: 0.2).
-- `--n_estimators`: Number of trees in the Random Forest (default: 100).
-- `--frame_skip`: Process every Nth frame to speed up training (default: 1).
+### 3. Training
 
-## Project Structure
+```bash
+uv run python src/train_model.py --help
+```
 
-- `src/`: Source code directory.
-  - `train_model.py`: Script for training the gesture recognition model.
-  - `gui_version.py`: Main application with GUI.
-  - `RUNME.py`: Entry point script.
-  - `sound_syn.py`: Python module for OSC communication.
-  - `sound_syn.scd`: SuperCollider code for sound synthesis.
-  - `global_variable.py`: Configuration and global variables.
-  - `music_source/`: Contains MIDI files and related scripts.
-- `requirements.txt`: Python dependencies.
-- `README.md`: Project documentation.
+Common arguments: `--data_dir` (required), `--output` (default `gesture_model.pkl`), `--test_size`, `--n_estimators`, `--frame_skip`.
+
+## Project structure
+
+- `src/gui_version.py` — main GUI and inference loop
+- `src/train_model.py` — training CLI
+- `src/RUNME.py` — launches `gui_version.py`
+- `src/hand_gesture_app/` — `hand-gesture-gui` entrypoint
+- `src/sound_syn.py`, `src/sound_syn.scd` — OSC / SuperCollider
+- `pyproject.toml`, `uv.lock` — project and locked dependencies
+- `requirements.txt` — pip-friendly constraint list
 
 ## Gestures
 
-The model is trained to recognize the following gestures:
-- Open Hand
-- Fist
-- Cross
-- One
-- Two
-- Three
-- Thumb
+Open Hand, Fist, Cross, One, Two, Three, Thumb

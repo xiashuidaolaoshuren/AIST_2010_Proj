@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hand-gesture-controller"
+version = "0.1.0"
+description = "Hand gesture recognition for music control via OSC and SuperCollider"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+dependencies = [
+    "opencv-python>=4.9.0,<5",
+    "mediapipe==0.10.14",
+    "numpy>=1.26.4,<3",
+    "joblib>=1.4.0,<2",
+    "scikit-learn>=1.5.0,<2",
+    "python-osc>=1.9.0,<2",
+    "sounddevice>=0.5.0,<1",
+    "wavio>=0.0.9,<1",
+    "soundfile>=0.12.1,<1",
+    "scipy>=1.13.0,<2",
+    "pillow>=10.3.0,<12",
+    "mido>=1.3.0,<2",
+]
+
+[project.scripts]
+hand-gesture-gui = "hand_gesture_app.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

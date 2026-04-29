@@ -1,4 +1,4 @@
-"""Launch the GUI (same as running `gui_version.py` directly)."""
+"""Entrypoint for `hand-gesture-gui` / `python -m hand_gesture_app`."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def main() -> None:
-    gui = Path(__file__).resolve().parent / "gui_version.py"
+    gui = Path(__file__).resolve().parent.parent / "gui_version.py"
     if not gui.is_file():
         print(f"Error: missing {gui}", file=sys.stderr)
         sys.exit(1)

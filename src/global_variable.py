@@ -1,5 +1,4 @@
 from pythonosc import udp_client
-import pygame
 
 midi_interval = 0.026 #Value of y to increase / decrease 1 midinote
 respond_time = 1

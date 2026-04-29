@@ -13,6 +13,47 @@ import tkinter as tk
 from sound_syn import sound_synth
 from global_variable import *
 from PIL import Image, ImageTk  # For displaying OpenCV frames in Tkinter
+from sklearn.exceptions import InconsistentVersionWarning
+
+warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+
+
+def load_gesture_model_bundle(path: str):
+    """Load (model, label_encoder) from joblib files in supported layouts."""
+    payload = joblib.load(path)
+    if isinstance(payload, dict):
+        if "model" in payload and "label_encoder" in payload:
+            return payload["model"], payload["label_encoder"]
+        raise ValueError(
+            "Model dict must contain 'model' and 'label_encoder' "
+            f"(found keys: {list(payload.keys())!r}). "
+            "Use output from src/train_model.py or the training notebook save cell."
+        )
+    if isinstance(payload, (list, tuple)):
+        if len(payload) == 2:
+            return payload[0], payload[1]
+        raise ValueError(
+            "Expected a 2-element list/tuple [model, label_encoder] "
+            f"(got length {len(payload)})."
+        )
+    if hasattr(payload, "predict") and hasattr(payload, "classes_"):
+        from sklearn.preprocessing import LabelEncoder
+
+        m = payload
+        class_vals = np.asarray(m.classes_)
+        if np.issubdtype(class_vals.dtype, np.number) and class_vals.dtype != object:
+            raise ValueError(
+                "This pickle contains only the classifier (no LabelEncoder), "
+                "and it was trained on encoded integers, so gesture names cannot be recovered. "
+                "Re-save with both objects, e.g. "
+                "joblib.dump({'model': model, 'label_encoder': label_encoder}, path) "
+                "or run src/train_model.py to write gesture_model.pkl."
+            )
+        le = LabelEncoder()
+        le.classes_ = np.asarray(class_vals, dtype=object)
+        return m, le
+    raise ValueError(f"Unsupported gesture_model.pkl contents: {type(payload)!r}")
+
 
 # Global variables
 midi_interval = 0.05  # Value of y to increase/decrease 1 MIDI note
@@ -29,16 +70,14 @@ model = None
 label_encoder = None
 if os.path.isfile(model_file_path):
     try:
-        model_data = joblib.load(model_file_path)
-        model = model_data["model"]
-        label_encoder = model_data["label_encoder"]
+        model, label_encoder = load_gesture_model_bundle(model_file_path)
     except Exception as exc:  # noqa: BLE001
         print(
-            f"Error: could not load gesture model ({exc}).\n"
-            "If you upgraded NumPy or scikit-learn, retrain with train_model.py.",
+            f"Warning: could not load gesture model ({exc}). "
+            "Running without gesture control; fix or remove the file and retrain if needed.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        model, label_encoder = None, None
 else:
     print(
         f"No model at {model_file_path}. "
@@ -54,14 +93,45 @@ mp_drawing = mp.solutions.drawing_utils
 # Tkinter GUI variables
 current_mode = 0
 current_instrument = 0
-cap = cv2.VideoCapture(0)  # OpenCV video capture
-if not cap.isOpened():
+
+
+def _open_working_capture():
+    """Return a VideoCapture that delivers at least one good frame, or None."""
+
+    def _try_open(idx, api):
+        try:
+            c = cv2.VideoCapture(idx, api) if api is not None else cv2.VideoCapture(idx)
+            if not c.isOpened():
+                return None
+            for _ in range(5):
+                ok, fr = c.read()
+                if ok and fr is not None and fr.size > 0:
+                    return c
+                time.sleep(0.05)
+            c.release()
+        except Exception:
+            pass
+        return None
+
+    tries = []
+    if sys.platform == "win32":
+        tries.append((0, cv2.CAP_DSHOW))
+    tries.append((0, cv2.CAP_ANY))
+    for idx, api in tries:
+        cap_local = _try_open(idx, api)
+        if cap_local is not None:
+            return cap_local
+    return _try_open(0, None)
+
+
+cap = _open_working_capture()
+if cap is None or not cap.isOpened():
     print(
-        "Error: could not open default camera (index 0). "
-        "Check that a webcam is connected and not in use by another app.",
+        "Warning: no working webcam; GUI will open without a live preview. "
+        "Connect a camera or close other apps using it, then restart.",
         file=sys.stderr,
     )
-    sys.exit(1)
+    cap = None
 gesture_text = "(No model)" if model is None else "None"
 midinote = 69  # Default MIDI note
 mcp_y = None  # Middle finger MCP Y position for tracking movement
@@ -124,6 +194,23 @@ def update_frame():
     global input_device_info, input_channels
     global recording_data, init, key_pressed_s
 
+    if cap is None:
+        video_canvas.delete("all")
+        video_canvas.create_rectangle(
+            0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, fill="#1a1a1a", outline=""
+        )
+        video_canvas.create_text(
+            CANVAS_WIDTH // 2,
+            CANVAS_HEIGHT // 2,
+            text="No camera\n\nOpen without gesture_model.pkl is OK;\nadd src/gesture_model.pkl after training.",
+            fill="#eeeeee",
+            font=("Arial", 14),
+            justify=tk.CENTER,
+        )
+        gesture_label.config(text=f"Gesture: {gesture_text}")
+        root.after(200, update_frame)
+        return
+
     ret, frame = cap.read()
     if not ret:
         print("Failed to capture video.")
@@ -159,8 +246,11 @@ def update_frame():
                     [hand_landmarks_list[0], np.zeros(42)]
                 ).reshape(1, -1)
 
-            gesture_id = model.predict(combined_landmarks)[0]
-            gesture_text = label_encoder.inverse_transform([gesture_id])[0]
+            raw_pred = model.predict(combined_landmarks)[0]
+            if isinstance(raw_pred, str | np.str_):
+                gesture_text = str(raw_pred)
+            else:
+                gesture_text = label_encoder.inverse_transform([int(raw_pred)])[0]
             middle_mcp = results.multi_hand_landmarks[0].landmark[
                 mp_hands.HandLandmark.MIDDLE_FINGER_MCP
             ]
@@ -312,5 +402,6 @@ update_frame()
 
 root.mainloop()
 
-cap.release()
+if cap is not None:
+    cap.release()
 cv2.destroyAllWindows()

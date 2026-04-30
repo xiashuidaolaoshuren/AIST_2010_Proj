@@ -14,4 +14,18 @@ __pycache__/
 *.egg-info/
 
 # Trained model (train with src/train_model.py)
-src/gesture_model.pkl
+*.pkl
+
+# Training videos
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.mpg
+*.mpeg
+*.mp3
+*.wav
+*.m4a
+*.m4v
+*.m4p
+*.m4b

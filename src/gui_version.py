@@ -359,7 +359,7 @@ def update_frame():
                         time.sleep(0.5)
                         client.send_message("/playfile", recording_file_path)
 
-    img = Image.fromarray(rgb_frame)
+    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     imgtk = ImageTk.PhotoImage(image=img)
     video_canvas.create_image(0, 0, anchor=tk.NW, image=imgtk)
     video_canvas.imgtk = imgtk
